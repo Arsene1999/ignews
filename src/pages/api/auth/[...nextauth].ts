@@ -11,22 +11,40 @@ export default NextAuth({
       clientSecret: process.env.GITHUB_SECRET,
       scope: 'read: user',
     }),
-    
   ],
   callbacks:{
     async signIn(user, account, profile){
       const { email } = user;
+     
       
       try{
         await fauna.query(
-          qFauna.Create(
-            qFauna.Collection('users'),
-            { data: { email } }
-          )
-        );
+          qFauna.If(
+            qFauna.Not(
+              qFauna.Exists(
+                qFauna.Match(
+                  qFauna.Index("user_by_email"),
+                  qFauna.Casefold(user.email)
+                )
+              )
+            ),
+            qFauna.Create(
+              qFauna.Collection("users"),
+              { data: { email } }
+            ),
+            qFauna.Get(
+              qFauna.Match(
+                qFauna.Index("user_by_email"),
+                qFauna.Casefold(user.email)
+              )
+            )
+          ) 
+        )
         return true;
-      }catch(err){
-        console.log(err);
+      }
+      catch(err)
+      {  
+        console.log(err)
         return false;
       }
       
